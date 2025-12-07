@@ -64,9 +64,26 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
-    // save a product data in db
-    const db = client.db('productDB')
+    
+    const db = client.db('productsDB')
     const productsCollection = db.collection('products')
+
+
+    // save a product data in db
+    app.post('/products', async(req, res) => {
+      const productData = req.body
+      const result = await productsCollection.insertOne(productData)
+      res.send(result)
+    })
+
+
+    // get all products from db
+    app.get('/products', async(req, res) => {
+      const result = await productsCollection.find().toArray()
+      res.send(result)
+    })
+
+
 
 
 
