@@ -187,7 +187,16 @@ async function run() {
     // get api for approve orders
     app.get('/approve-orders/:email', async(req, res) => {
       const email = req.params.email
-      const result = await ordersCollection.find({ 'buyer.email': email }).toArray()
+      const result = await ordersCollection.find({ 'manager.email': email }).toArray()
+      res.send(result)
+    })
+
+
+
+    // get all plants for a manager by email
+    app.get('/manage-product/:email', async(req, res) => {
+      const email = req.params.email
+      const result = await productsCollection.find({ 'manager.email': email }).toArray()
       res.send(result)
     })
 
