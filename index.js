@@ -67,6 +67,8 @@ async function run() {
     const db = client.db('productsDB')
     const productsCollection = db.collection('products')
 
+    const ordersCollection = db.collection('orders')
+
 
     // save a product data in db
     app.post('/products', async (req, res) => {
@@ -107,7 +109,7 @@ async function run() {
                 description: paymentInfo?.description,
                 images: [paymentInfo?.image],
               },
-              unit_amount: paymentInfo?.price *100,
+              unit_amount: paymentInfo?.price * 100,
             },
             quantity: paymentInfo?.availableQuantity,
           },
@@ -121,8 +123,55 @@ async function run() {
         cancel_url: `${process.env.CLIENT_DOMAIN}/product/${paymentInfo?.productId}`,
       })
 
-      res.send({url: session.url})
+      res.send({ url: session.url })
 
+    })
+
+
+    app.post('/payment-success', async (req, res) => {
+      const { sessionId } = req.body
+      const session = await stripe.checkout.sessions.retrieve(sessionId)
+
+      const product = await productsCollection.findOne({ _id: new ObjectId(session.metadata.productId) })
+
+      const order = await ordersCollection.findOne({ transactionId: session.payment_intent })
+
+
+      if (session.status === 'complete' && product && !order) {
+        // save order data in db
+        const orderInfo = {
+          productId: session.metadata.productId,
+          transactionId: session.payment_intent,
+          buyer: session.metadata.buyer,
+          status: 'pending',
+          manager: product.manager,
+          name: product.name,
+          category: product.category,
+          availableQuantity: product.availableQuantity,
+          price: session.amount_total / 100,
+        }
+        const result = await ordersCollection.insertOne(orderInfo)
+        // update product available quantity
+        await productsCollection.updateOne(
+          {
+            _id: new ObjectId(session.metadata.productId),
+          },
+          { $inc: { availableQuantity: -1 } }
+        )
+
+        return res.send({
+          transactionId: session.payment_intent,
+          orderId: result.insertedId,
+
+        })
+      }
+      res.send(
+        res.send({
+          transactionId: session.payment_intent,
+          orderId: order._id,
+
+        })
+      )
     })
 
 
