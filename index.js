@@ -175,6 +175,14 @@ async function run() {
     })
 
 
+    // get all orders for a buyer by email
+    app.get('/my-orders/:email', async(req, res) => {
+      const email = req.params.email
+      const result = await ordersCollection.find({ buyer: email }).toArray()
+      res.send(result)
+    })
+
+
 
 
 
