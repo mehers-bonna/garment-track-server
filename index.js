@@ -3,6 +3,8 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const admin = require('firebase-admin')
+const stripe = require('stripe')(process.env.STRIPE_SECRET)
+
 const port = process.env.PORT || 3000
 const decoded = Buffer.from(process.env.FB_SERVICE_KEY, 'base64').toString(
   'utf-8'
@@ -21,10 +23,7 @@ app.use(express.json())
 
 app.use(
   cors({
-    origin: [
-      'http://localhost:5173',
-      'http://localhost:5174',
-    ],
+    origin: [process.env.CLIENT_DOMAIN],
     credentials: true,
     optionSuccessStatus: 200,
   })
@@ -64,13 +63,13 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
 
-    
+
     const db = client.db('productsDB')
     const productsCollection = db.collection('products')
 
 
     // save a product data in db
-    app.post('/products', async(req, res) => {
+    app.post('/products', async (req, res) => {
       const productData = req.body
       const result = await productsCollection.insertOne(productData)
       res.send(result)
@@ -78,7 +77,7 @@ async function run() {
 
 
     // get all products from db
-    app.get('/products', async(req, res) => {
+    app.get('/products', async (req, res) => {
       const result = await productsCollection.find().toArray()
       res.send(result)
     })
@@ -86,10 +85,44 @@ async function run() {
 
 
     // get product details
-    app.get('/products/:id', async(req, res) => {
+    app.get('/products/:id', async (req, res) => {
       const id = req.params.id
-      const result = await productsCollection.findOne({_id: new ObjectId(id)})
+      const result = await productsCollection.findOne({ _id: new ObjectId(id) })
       res.send(result)
+    })
+
+
+    // payment related apis
+    app.post('/create-checkout-session', async (req, res) => {
+      const paymentInfo = req.body
+      console.log(paymentInfo)
+      // res.send(paymentInfo)
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              product_data: {
+                name: paymentInfo?.name,
+                description: paymentInfo?.description,
+                images: [paymentInfo?.image],
+              },
+              unit_amount: paymentInfo?.price *100,
+            },
+            quantity: paymentInfo?.availableQuantity,
+          },
+        ],
+        mode: 'payment',
+        metadata: {
+          productId: paymentInfo?.productId,
+          buyer: paymentInfo?.buyer.email,
+        },
+        success_url: `${process.env.CLIENT_DOMAIN}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.CLIENT_DOMAIN}/product/${paymentInfo?.productId}`,
+      })
+
+      res.send({url: session.url})
+
     })
 
 
@@ -107,7 +140,7 @@ async function run() {
 
 
 
-    
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
