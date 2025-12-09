@@ -176,7 +176,7 @@ async function run() {
 
 
     // get all orders for a buyer by email
-    app.get('/my-orders/:email', async(req, res) => {
+    app.get('/my-orders/:email', async (req, res) => {
       const email = req.params.email
       const result = await ordersCollection.find({ buyer: email }).toArray()
       res.send(result)
@@ -185,7 +185,7 @@ async function run() {
 
 
     // get api for approve orders
-    app.get('/approve-orders/:email', async(req, res) => {
+    app.get('/approve-orders/:email', async (req, res) => {
       const email = req.params.email
       const result = await ordersCollection.find({ 'manager.email': email }).toArray()
       res.send(result)
@@ -194,7 +194,7 @@ async function run() {
 
 
     // get all plants for a manager by email
-    app.get('/manage-product/:email', async(req, res) => {
+    app.get('/manage-product/:email', async (req, res) => {
       const email = req.params.email
       const result = await productsCollection.find({ 'manager.email': email }).toArray()
       res.send(result)
@@ -204,18 +204,30 @@ async function run() {
 
     // New API: Update a product by ID (PUT method)
     app.put('/product/:id', async (req, res) => {
-      const id = req.params.id 
-      const updatedProductData = req.body 
-      
+      const id = req.params.id
+      const updatedProductData = req.body
+
       const query = { _id: new ObjectId(id) }
-      
+
       const updateDoc = {
         $set: {
-          ...updatedProductData, 
+          ...updatedProductData,
         },
       }
 
       const result = await productsCollection.updateOne(query, updateDoc)
+
+      res.send(result)
+    })
+
+
+    // New API: Delete a product by ID (DELETE method)
+    app.delete('/product/:id', async (req, res) => {
+      const id = req.params.id 
+
+      const query = { _id: new ObjectId(id) }
+
+      const result = await productsCollection.deleteOne(query)
 
       res.send(result)
     })
