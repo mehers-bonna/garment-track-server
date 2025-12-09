@@ -187,7 +187,12 @@ async function run() {
     // get api for approve orders
     app.get('/approve-orders/:email', async (req, res) => {
       const email = req.params.email
-      const result = await ordersCollection.find({ 'manager.email': email }).toArray()
+      const query = {
+        'manager.email': email,
+        status: 'Pending'
+      }
+
+      const result = await ordersCollection.find(query).toArray()
       res.send(result)
     })
 
@@ -223,7 +228,7 @@ async function run() {
 
     // New API: Delete a product by ID (DELETE method)
     app.delete('/product/:id', async (req, res) => {
-      const id = req.params.id 
+      const id = req.params.id
 
       const query = { _id: new ObjectId(id) }
 
@@ -231,6 +236,32 @@ async function run() {
 
       res.send(result)
     })
+
+
+    // New API: Update Order Status by ID (PUT method)
+    app.put('/order-status/:id', async (req, res) => {
+      const id = req.params.id; 
+      const { status } = req.body; 
+
+      let updateFields = { status };
+
+      if (status === 'Approved') {
+        updateFields.approvedAt = new Date();
+      }
+      else if (status === 'Rejected') {
+        updateFields.approvedAt = null; 
+      }
+
+
+      const query = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: updateFields,
+      };
+
+      const result = await ordersCollection.updateOne(query, updateDoc);
+
+      res.send(result);
+    });
 
 
 
