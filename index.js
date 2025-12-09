@@ -66,19 +66,40 @@ async function run() {
 
     const db = client.db('productsDB')
     const productsCollection = db.collection('products')
-
     const ordersCollection = db.collection('orders')
+    const usersCollection = db.collection('users')
 
 
     // save a product data in db
     app.post('/products', async (req, res) => {
       const productData = req.body
+      productData.showOnHome = false;
       const result = await productsCollection.insertOne(productData)
       res.send(result)
     })
 
 
     // get all products from db
+    app.get('/products', async (req, res) => {
+      const result = await productsCollection.find().toArray()
+      res.send(result)
+    })
+
+
+    // new api Get all FEATURED products for the Home Page (MUST BE FIRST)
+    app.get('/products/featured', async (req, res) => {
+      const query = {
+        $or: [
+          { showOnHome: true },
+          { showOnHome: "true" }
+        ]
+      };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+    // 2. // get all products from db (Route: /products)
     app.get('/products', async (req, res) => {
       const result = await productsCollection.find().toArray()
       res.send(result)
@@ -175,6 +196,25 @@ async function run() {
     })
 
 
+
+    // ✅ NEW API: Get all orders with optional status filter for Admin Dashboard
+app.get('/all-orders', async (req, res) => {
+    const { status } = req.query; 
+
+    let query = {};
+    if (status) {
+        query.status = status; 
+    }
+
+    const options = {
+        sort: { transactionId: -1 } 
+    };
+
+    const result = await ordersCollection.find(query, options).toArray();
+    res.send(result);
+});
+
+
     // get all orders for a buyer by email
     app.get('/my-orders/:email', async (req, res) => {
       const email = req.params.email
@@ -240,8 +280,8 @@ async function run() {
 
     // New API: Update Order Status by ID (PUT method)
     app.put('/order-status/:id', async (req, res) => {
-      const id = req.params.id; 
-      const { status } = req.body; 
+      const id = req.params.id;
+      const { status } = req.body;
 
       let updateFields = { status };
 
@@ -249,7 +289,7 @@ async function run() {
         updateFields.approvedAt = new Date();
       }
       else if (status === 'Rejected') {
-        updateFields.approvedAt = null; 
+        updateFields.approvedAt = null;
       }
 
 
@@ -266,46 +306,149 @@ async function run() {
 
 
     //  NEW API: Get all approved orders for a manager by email
-app.get('/approved-orders/:email', async (req, res) => {
-    const email = req.params.email
-    const query = {
+    app.get('/approved-orders/:email', async (req, res) => {
+      const email = req.params.email
+      const query = {
         'manager.email': email,
-        status: 'Approved' 
-    }
+        status: 'Approved'
+      }
 
-    const options = {
-        sort: { approvedAt: -1 } 
-    };
-    
-    const result = await ordersCollection.find(query, options).toArray()
-    res.send(result)
-})
+      const options = {
+        sort: { approvedAt: -1 }
+      };
+
+      const result = await ordersCollection.find(query, options).toArray()
+      res.send(result)
+    })
 
 
 
-// NEW API: Add Tracking Information to an order (POST/PUT method)
-app.put('/order-tracking/:id', async (req, res) => {
-    const id = req.params.id;
-    const trackingData = req.body; 
-    
-    const newTrackingEntry = {
+    // NEW API: Add Tracking Information to an order (POST/PUT method)
+    app.put('/order-tracking/:id', async (req, res) => {
+      const id = req.params.id;
+      const trackingData = req.body;
+
+      const newTrackingEntry = {
         ...trackingData,
-        timestamp: new Date(), 
-    };
+        timestamp: new Date(),
+      };
 
-    const query = { _id: new ObjectId(id) };
-    
-    const updateDoc = {
-        $push: { tracking: newTrackingEntry }, 
-        $set: { 
-            currentTrackingStatus: trackingData.status, 
-            updatedAt: new Date() 
-        } 
-    };
+      const query = { _id: new ObjectId(id) };
 
-    const result = await ordersCollection.updateOne(query, updateDoc);
-    res.send(result);
-});
+      const updateDoc = {
+        $push: { tracking: newTrackingEntry },
+        $set: {
+          currentTrackingStatus: trackingData.status,
+          updatedAt: new Date()
+        }
+      };
+
+      const result = await ordersCollection.updateOne(query, updateDoc);
+      res.send(result);
+    });
+
+
+
+    // NEW API: Get all users
+    app.get('/users', async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    });
+
+    // NEW API: Update User Role and Status by ID (PUT method)
+    app.put('/user/:id', async (req, res) => {
+      const id = req.params.id;
+      const updatedUserData = req.body; 
+
+      // ⚠️ Optional: Admin check middleware ekhane use kora uchit
+
+      const query = { _id: new ObjectId(id) };
+
+      const updateDoc = {
+        $set: {
+          role: updatedUserData.role,
+          status: updatedUserData.status,
+          suspendReason: updatedUserData.suspendReason,
+          suspendFeedback: updatedUserData.suspendFeedback,
+          updated_at: new Date().toISOString(),
+        },
+      };
+
+      const result = await usersCollection.updateOne(query, updateDoc);
+
+      res.send(result);
+    });
+
+
+
+
+
+
+
+
+    // save or update a user in db
+    app.post('/user', async (req, res) => {
+      const userData = req.body
+      userData.created_at = new Date().toISOString()
+      userData.last_loggedIn = new Date().toISOString()
+      userData.role = 'buyer'
+      userData.status = 'pending'
+
+      const query = {
+        email: userData.email,
+      }
+
+      const alreadyExists = await usersCollection.findOne(query)
+      console.log('User Already Exists----->', !!alreadyExists)
+      if (alreadyExists) {
+        console.log('Updating user info......')
+        const result = await usersCollection.updateOne(query, {
+          $set: {
+            last_loggedIn: new Date().toISOString(),
+          }
+        })
+        res.send(result)
+        return
+      }
+
+      console.log('Saving new user info......')
+      const result = await usersCollection.insertOne(userData)
+      res.send(result)
+    })
+
+    // get a user's role
+    app.get('/user/role/:email', async (req, res) => {
+      const email = req.params.email
+      const result = await usersCollection.findOne({ email })
+      res.send({ role: result?.role })
+    })
+
+
+
+    // NEW API: Toggle Product Visibility on Home Page
+    app.put('/products/toggle-home/:id', async (req, res) => {
+      // ⚠️ Ekhane Admin verification middleware add kora uchit
+
+      const id = req.params.id;
+      const { showOnHome } = req.body; 
+
+      if (typeof showOnHome !== 'boolean') {
+        return res.status(400).send({ message: 'Invalid value for showOnHome (must be boolean)' });
+      }
+
+      const query = { _id: new ObjectId(id) };
+
+      const updateDoc = {
+        $set: {
+          showOnHome: showOnHome, 
+          updatedAt: new Date(),
+        },
+      };
+
+      const result = await productsCollection.updateOne(query, updateDoc);
+
+      res.send(result);
+    });
 
 
 
