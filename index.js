@@ -143,7 +143,7 @@ async function run() {
           productId: session.metadata.productId,
           transactionId: session.payment_intent,
           buyer: session.metadata.buyer,
-          status: 'pending',
+          status: 'Pending',
           manager: product.manager,
           name: product.name,
           category: product.category,
@@ -199,6 +199,27 @@ async function run() {
       const result = await productsCollection.find({ 'manager.email': email }).toArray()
       res.send(result)
     })
+
+
+
+    // New API: Update a product by ID (PUT method)
+    app.put('/product/:id', async (req, res) => {
+      const id = req.params.id 
+      const updatedProductData = req.body 
+      
+      const query = { _id: new ObjectId(id) }
+      
+      const updateDoc = {
+        $set: {
+          ...updatedProductData, 
+        },
+      }
+
+      const result = await productsCollection.updateOne(query, updateDoc)
+
+      res.send(result)
+    })
+
 
 
 
