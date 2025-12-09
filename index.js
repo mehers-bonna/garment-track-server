@@ -265,6 +265,50 @@ async function run() {
 
 
 
+    //  NEW API: Get all approved orders for a manager by email
+app.get('/approved-orders/:email', async (req, res) => {
+    const email = req.params.email
+    const query = {
+        'manager.email': email,
+        status: 'Approved' 
+    }
+
+    const options = {
+        sort: { approvedAt: -1 } 
+    };
+    
+    const result = await ordersCollection.find(query, options).toArray()
+    res.send(result)
+})
+
+
+
+// NEW API: Add Tracking Information to an order (POST/PUT method)
+app.put('/order-tracking/:id', async (req, res) => {
+    const id = req.params.id;
+    const trackingData = req.body; 
+    
+    const newTrackingEntry = {
+        ...trackingData,
+        timestamp: new Date(), 
+    };
+
+    const query = { _id: new ObjectId(id) };
+    
+    const updateDoc = {
+        $push: { tracking: newTrackingEntry }, 
+        $set: { 
+            currentTrackingStatus: trackingData.status, 
+            updatedAt: new Date() 
+        } 
+    };
+
+    const result = await ordersCollection.updateOne(query, updateDoc);
+    res.send(result);
+});
+
+
+
 
 
 
