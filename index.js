@@ -99,14 +99,6 @@ async function run() {
     });
 
 
-    // 2. // get all products from db (Route: /products)
-    app.get('/products', async (req, res) => {
-      const result = await productsCollection.find().toArray()
-      res.send(result)
-    })
-
-
-
     // get product details
     app.get('/products/:id', async (req, res) => {
       const id = req.params.id
@@ -196,8 +188,7 @@ async function run() {
     })
 
 
-
-    // ✅ NEW API: Get all orders with optional status filter for Admin Dashboard
+    //api to get all orders with optional status filter for admin dashboard
 app.get('/all-orders', async (req, res) => {
     const { status } = req.query; 
 
@@ -222,7 +213,29 @@ app.get('/all-orders', async (req, res) => {
       res.send(result)
     })
 
+// new api for track order
+app.get('/order/:orderId', async (req, res) => {
+    const id = req.params.orderId
+    
+    if (!ObjectId.isValid(id)) {
+        return res.status(400).send({ message: "Invalid Order ID format" });
+    }
 
+    try {
+        const query = { _id: new ObjectId(id) } 
+        const orderData = await ordersCollection.findOne(query);
+
+        if (!orderData) {
+            return res.status(404).send({ message: "Order not found" });
+        }
+        
+        res.send(orderData); 
+        
+    } catch (error) {
+        console.error("Error fetching order:", error);
+        res.status(500).send({ message: "Internal Server Error" });
+    }
+})
 
     // get api for approve orders
     app.get('/approve-orders/:email', async (req, res) => {
@@ -236,8 +249,6 @@ app.get('/all-orders', async (req, res) => {
       res.send(result)
     })
 
-
-
     // get all plants for a manager by email
     app.get('/manage-product/:email', async (req, res) => {
       const email = req.params.email
@@ -245,9 +256,7 @@ app.get('/all-orders', async (req, res) => {
       res.send(result)
     })
 
-
-
-    // New API: Update a product by ID (PUT method)
+    // api for Update a product by id
     app.put('/product/:id', async (req, res) => {
       const id = req.params.id
       const updatedProductData = req.body
@@ -259,26 +268,20 @@ app.get('/all-orders', async (req, res) => {
           ...updatedProductData,
         },
       }
-
       const result = await productsCollection.updateOne(query, updateDoc)
-
       res.send(result)
     })
 
-
-    // New API: Delete a product by ID (DELETE method)
+    // new api delete a product by id
     app.delete('/product/:id', async (req, res) => {
       const id = req.params.id
-
       const query = { _id: new ObjectId(id) }
-
       const result = await productsCollection.deleteOne(query)
 
       res.send(result)
     })
 
-
-    // New API: Update Order Status by ID (PUT method)
+    // api for Update Order Status by id
     app.put('/order-status/:id', async (req, res) => {
       const id = req.params.id;
       const { status } = req.body;
@@ -291,39 +294,30 @@ app.get('/all-orders', async (req, res) => {
       else if (status === 'Rejected') {
         updateFields.approvedAt = null;
       }
-
-
       const query = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: updateFields,
       };
-
       const result = await ordersCollection.updateOne(query, updateDoc);
 
       res.send(result);
     });
 
-
-
-    //  NEW API: Get all approved orders for a manager by email
+    //  api to get all approved orders for a manager by email
     app.get('/approved-orders/:email', async (req, res) => {
       const email = req.params.email
       const query = {
         'manager.email': email,
         status: 'Approved'
       }
-
       const options = {
         sort: { approvedAt: -1 }
       };
-
       const result = await ordersCollection.find(query, options).toArray()
       res.send(result)
     })
 
-
-
-    // NEW API: Add Tracking Information to an order (POST/PUT method)
+    // api to add tracking Information to an order 
     app.put('/order-tracking/:id', async (req, res) => {
       const id = req.params.id;
       const trackingData = req.body;
@@ -332,7 +326,6 @@ app.get('/all-orders', async (req, res) => {
         ...trackingData,
         timestamp: new Date(),
       };
-
       const query = { _id: new ObjectId(id) };
 
       const updateDoc = {
@@ -342,20 +335,17 @@ app.get('/all-orders', async (req, res) => {
           updatedAt: new Date()
         }
       };
-
       const result = await ordersCollection.updateOne(query, updateDoc);
       res.send(result);
     });
 
-
-
-    // NEW API: Get all users
+    // api to get all users
     app.get('/users', async (req, res) => {
       const result = await usersCollection.find().toArray();
       res.send(result);
     });
 
-    // NEW API: Update User Role and Status by ID (PUT method)
+    // api to Update User Role and Status by id
     app.put('/user/:id', async (req, res) => {
       const id = req.params.id;
       const updatedUserData = req.body; 
@@ -363,7 +353,6 @@ app.get('/all-orders', async (req, res) => {
       // ⚠️ Optional: Admin check middleware ekhane use kora uchit
 
       const query = { _id: new ObjectId(id) };
-
       const updateDoc = {
         $set: {
           role: updatedUserData.role,
@@ -373,18 +362,10 @@ app.get('/all-orders', async (req, res) => {
           updated_at: new Date().toISOString(),
         },
       };
-
       const result = await usersCollection.updateOne(query, updateDoc);
 
       res.send(result);
     });
-
-
-
-
-
-
-
 
     // save or update a user in db
     app.post('/user', async (req, res) => {
@@ -397,7 +378,6 @@ app.get('/all-orders', async (req, res) => {
       const query = {
         email: userData.email,
       }
-
       const alreadyExists = await usersCollection.findOne(query)
       console.log('User Already Exists----->', !!alreadyExists)
       if (alreadyExists) {
@@ -423,19 +403,15 @@ app.get('/all-orders', async (req, res) => {
       res.send({ role: result?.role })
     })
 
-
-
-    // NEW API: Toggle Product Visibility on Home Page
+    // api for toggle Product Visibility on Home Page
     app.put('/products/toggle-home/:id', async (req, res) => {
       // ⚠️ Ekhane Admin verification middleware add kora uchit
 
       const id = req.params.id;
       const { showOnHome } = req.body; 
-
       if (typeof showOnHome !== 'boolean') {
         return res.status(400).send({ message: 'Invalid value for showOnHome (must be boolean)' });
       }
-
       const query = { _id: new ObjectId(id) };
 
       const updateDoc = {
