@@ -20,7 +20,10 @@ app.use(express.json())
 
 app.use(
   cors({
-    origin: [process.env.CLIENT_DOMAIN],
+    origin: [
+      'http://localhost:5173',
+      process.env.CLIENT_DOMAIN
+    ],
     credentials: true,
     optionSuccessStatus: 200,
   })
@@ -114,7 +117,7 @@ async function run() {
     });
 
     // get product details
-    app.get('/products/:id', verifyJWT, async (req, res) => {
+    app.get('/products/:id', async (req, res) => {
       const id = req.params.id;
       const result = await productsCollection.findOne({
         _id: new ObjectId(id)
